@@ -8,6 +8,7 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_common.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp32/rom/ets_sys.h"
 
 #define BLINK_GPIO 2
@@ -188,6 +189,10 @@ void uart_terminal_task(void *arg)
                             snprintf(freq_str, sizeof(freq_str), "%lu Hz\r\n", cpu_freq);
                             uart_write_bytes(UART_NUM, freq_str, strlen(freq_str));
                             uart_write_bytes(UART_NUM, "> ", 3);
+                        } else if (strcmp(cmd_buf, "reset") == 0) {
+                            uart_write_bytes(UART_NUM, "\r\nResetting ESP32...\r\n", 27);
+                            vTaskDelay(100 / portTICK_PERIOD_MS);
+                            esp_restart();
                         } else if (strcmp(cmd_buf, "help") == 0) {
                             uart_write_bytes(UART_NUM, "\r\nCommands:\r\n", 13);
                             uart_write_bytes(UART_NUM, "  blink on       - Enable blinking\r\n", 38);
@@ -198,6 +203,7 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "  i2s start      - Start I2S\r\n", 37);
                             uart_write_bytes(UART_NUM, "  i2s stop       - Stop I2S\r\n", 36);
                             uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
+                            uart_write_bytes(UART_NUM, "  reset          - Restart ESP32\r\n", 40);
                             uart_write_bytes(UART_NUM, "  help           - Show this help\r\n> ", 39);
                         } else {
                             uart_write_bytes(UART_NUM, "\r\nUnknown command. Type 'help'\r\n> ", 36);

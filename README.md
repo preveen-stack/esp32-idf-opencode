@@ -17,6 +17,8 @@ An ESP32 project implementing an interactive UART command-line interface with LE
 - `i2s stop` - Stop I2S transmission
 
 ### General
+- `clock` - Display system clock frequencies
+- `reset` - Restart the ESP32
 - `help` - Display all available commands
 
 ## Hardware Requirements
@@ -87,6 +89,8 @@ Commands:
   i2s tone <freq>- Play tone 100-15000Hz
   i2s start      - Start I2S
   i2s stop       - Stop I2S
+  clock          - Show system clocks
+  reset          - Restart ESP32
   help           - Show this help
 > blink off
 Blinking disabled
@@ -104,6 +108,13 @@ Tone playing
 Tone playing
 > i2s stop
 I2S stopped
+> clock
+System Clocks:
+  CPU: 240000000 Hz
+> reset
+Resetting ESP32...
+=== Blinky UART Terminal ===
+Type 'help' for commands
 > invalid_command
 Unknown command. Type 'help'
 > help
