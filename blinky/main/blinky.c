@@ -8,6 +8,7 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_common.h"
 #include "esp_log.h"
+#include "esp32/rom/ets_sys.h"
 
 #define BLINK_GPIO 2
 #define TAG "BLINKY"
@@ -179,6 +180,14 @@ void uart_terminal_task(void *arg)
                         } else if (strcmp(cmd_buf, "i2s stop") == 0) {
                             i2s_running = false;
                             uart_write_bytes(UART_NUM, "\r\nI2S stopped\r\n> ", 21);
+                        } else if (strcmp(cmd_buf, "clock") == 0) {
+                            uint32_t cpu_freq = ets_get_cpu_frequency() * 1000000;
+                            uart_write_bytes(UART_NUM, "\r\nSystem Clocks:\r\n", 20);
+                            uart_write_bytes(UART_NUM, "  CPU: ", 7);
+                            char freq_str[32];
+                            snprintf(freq_str, sizeof(freq_str), "%lu Hz\r\n", cpu_freq);
+                            uart_write_bytes(UART_NUM, freq_str, strlen(freq_str));
+                            uart_write_bytes(UART_NUM, "> ", 3);
                         } else if (strcmp(cmd_buf, "help") == 0) {
                             uart_write_bytes(UART_NUM, "\r\nCommands:\r\n", 13);
                             uart_write_bytes(UART_NUM, "  blink on       - Enable blinking\r\n", 38);
@@ -188,6 +197,7 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "  i2s tone <freq>- Play tone 100-15000Hz\r\n", 48);
                             uart_write_bytes(UART_NUM, "  i2s start      - Start I2S\r\n", 37);
                             uart_write_bytes(UART_NUM, "  i2s stop       - Stop I2S\r\n", 36);
+                            uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
                             uart_write_bytes(UART_NUM, "  help           - Show this help\r\n> ", 39);
                         } else {
                             uart_write_bytes(UART_NUM, "\r\nUnknown command. Type 'help'\r\n> ", 36);
