@@ -72,7 +72,7 @@ opencode/
 └── README.md
 ```
 
-## Example Session
+## Console Log Example
 
 ```
 === Blinky UART Terminal ===
@@ -88,8 +88,34 @@ Commands:
   i2s start      - Start I2S
   i2s stop       - Stop I2S
   help           - Show this help
+> blink off
+Blinking disabled
+> blink freq 500
+Blink frequency set
+> blink on
+Blinking enabled
 > i2s init 0 44100 16 stereo
 I2S initialized
-> i2s tone 1000
+> i2s tone 440
 Tone playing
+> i2s tone 880
+Tone playing
+> i2s tone 1760
+Tone playing
+> i2s stop
+I2S stopped
+> invalid_command
+Unknown command. Type 'help'
+> help
+
+Commands:
+  blink on       - Enable blinking
+  blink off      - Disable blinking
+  blink freq <ms>- Set blink period in ms
+  i2s init <ch> <sr> <w> <s/m> - Init I2S
+  i2s tone <freq>- Play tone 100-15000Hz
+  i2s start      - Start I2S
+  i2s stop       - Stop I2S
+  help           - Show this help
+>
 ```
