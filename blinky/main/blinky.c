@@ -34,9 +34,11 @@ static TaskHandle_t i2s_tone_task = NULL;
 
 #define I2C_MASTER_SCL_IO GPIO_NUM_19
 #define I2C_MASTER_SDA_IO GPIO_NUM_18
+#define I2C_MASTER_SCL_IO GPIO_NUM_19
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 100000
 static bool i2c_initialized = false;
+static i2c_master_bus_handle_t i2c_bus_handle = NULL;
 
 void blink_task(void *arg)
 {
@@ -137,8 +139,7 @@ void i2c_init_master(void)
             .enable_internal_pullup = true,
         },
     };
-    i2c_master_bus_handle_t bus_handle;
-    i2c_new_master_bus(&bus_config, &bus_handle);
+    i2c_new_master_bus(&bus_config, &i2c_bus_handle);
     i2c_initialized = true;
 }
 
@@ -157,7 +158,7 @@ void i2c_detect(void)
             snprintf(line, sizeof(line), "\r\n%02x: ", address);
             uart_write_bytes(UART_NUM, line, strlen(line));
         }
-        esp_err_t ret = i2c_master_probe(I2C_MASTER_NUM, address, 100);
+        esp_err_t ret = i2c_master_probe(i2c_bus_handle, address, 100);
         if (ret == ESP_OK) {
             char addr_str[4];
             snprintf(addr_str, sizeof(addr_str), "%02x ", address);
