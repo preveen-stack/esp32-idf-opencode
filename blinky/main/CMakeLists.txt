@@ -1,3 +1,3 @@
 idf_component_register(SRCS "blinky.c"
                     INCLUDE_DIRS ""
-                    REQUIRES esp_driver_gpio esp_driver_uart esp_driver_i2s esp_hw_support)
+                    REQUIRES esp_driver_gpio esp_driver_uart esp_driver_i2s esp_driver_i2c esp_hw_support)

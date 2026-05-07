@@ -7,6 +7,7 @@
 #include "driver/uart.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_common.h"
+#include "driver/i2c_master.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp32/rom/ets_sys.h"
@@ -30,6 +31,12 @@ static uint32_t i2s_sample_rate = 44100;
 static uint8_t i2s_bit_width = 16;
 static bool i2s_stereo = true;
 static TaskHandle_t i2s_tone_task = NULL;
+
+#define I2C_MASTER_SCL_IO GPIO_NUM_19
+#define I2C_MASTER_SDA_IO GPIO_NUM_18
+#define I2C_MASTER_NUM I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ 100000
+static bool i2c_initialized = false;
 
 void blink_task(void *arg)
 {
@@ -113,6 +120,55 @@ void i2s_init_chan(int channel, int sample_rate, int bit_width, bool stereo)
     i2s_initialized = true;
 }
 
+void i2c_init_master(void)
+{
+    if (i2c_initialized) {
+        return;
+    }
+    i2c_master_bus_config_t bus_config = {
+        .i2c_port = I2C_MASTER_NUM,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .intr_priority = 0,
+        .trans_queue_depth = 0,
+        .flags = {
+            .enable_internal_pullup = true,
+        },
+    };
+    i2c_master_bus_handle_t bus_handle;
+    i2c_new_master_bus(&bus_config, &bus_handle);
+    i2c_initialized = true;
+}
+
+void i2c_detect(void)
+{
+    if (!i2c_initialized) {
+        i2c_init_master();
+    }
+    uart_write_bytes(UART_NUM, "\r\nI2C Scan:\r\n", 14);
+    uart_write_bytes(UART_NUM, "     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n", 56);
+    uart_write_bytes(UART_NUM, "00:         ", 12);
+    uint16_t address;
+    for (address = 0x08; address <= 0x77; address++) {
+        if (address % 16 == 0 && address > 0x0f) {
+            char line[16];
+            snprintf(line, sizeof(line), "\r\n%02x: ", address);
+            uart_write_bytes(UART_NUM, line, strlen(line));
+        }
+        esp_err_t ret = i2c_master_probe(I2C_MASTER_NUM, address, 100);
+        if (ret == ESP_OK) {
+            char addr_str[4];
+            snprintf(addr_str, sizeof(addr_str), "%02x ", address);
+            uart_write_bytes(UART_NUM, addr_str, strlen(addr_str));
+        } else {
+            uart_write_bytes(UART_NUM, "-- ", 3);
+        }
+    }
+    uart_write_bytes(UART_NUM, "\r\n> ", 4);
+}
+
 void uart_terminal_task(void *arg)
 {
     uint8_t *data = malloc(BUF_SIZE);
@@ -181,6 +237,8 @@ void uart_terminal_task(void *arg)
                         } else if (strcmp(cmd_buf, "i2s stop") == 0) {
                             i2s_running = false;
                             uart_write_bytes(UART_NUM, "\r\nI2S stopped\r\n> ", 21);
+                        } else if (strcmp(cmd_buf, "i2c detect") == 0) {
+                            i2c_detect();
                         } else if (strcmp(cmd_buf, "clock") == 0) {
                             uint32_t cpu_freq = ets_get_cpu_frequency() * 1000000;
                             uart_write_bytes(UART_NUM, "\r\nSystem Clocks:\r\n", 20);
@@ -202,6 +260,7 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "  i2s tone <freq>- Play tone 100-15000Hz\r\n", 48);
                             uart_write_bytes(UART_NUM, "  i2s start      - Start I2S\r\n", 37);
                             uart_write_bytes(UART_NUM, "  i2s stop       - Stop I2S\r\n", 36);
+                            uart_write_bytes(UART_NUM, "  i2c detect     - Scan I2C bus\r\n", 40);
                             uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
                             uart_write_bytes(UART_NUM, "  reset          - Restart ESP32\r\n", 40);
                             uart_write_bytes(UART_NUM, "  help           - Show this help\r\n> ", 39);

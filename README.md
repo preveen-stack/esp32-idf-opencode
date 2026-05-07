@@ -19,6 +19,7 @@ An ESP32 project implementing an interactive UART command-line interface with LE
 ### General
 - `clock` - Display system clock frequencies
 - `reset` - Restart the ESP32
+- `i2c detect` - Scan I2C bus for devices
 - `help` - Display all available commands
 
 ## Hardware Requirements
@@ -89,6 +90,7 @@ Commands:
   i2s tone <freq>- Play tone 100-15000Hz
   i2s start      - Start I2S
   i2s stop       - Stop I2S
+  i2c detect     - Scan I2C bus
   clock          - Show system clocks
   reset          - Restart ESP32
   help           - Show this help
@@ -111,6 +113,17 @@ I2S stopped
 > clock
 System Clocks:
   CPU: 240000000 Hz
+> i2c detect
+I2C Scan:
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:         -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: -- -- -- -- -- -- --
 > reset
 Resetting ESP32...
 === Blinky UART Terminal ===
