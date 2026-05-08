@@ -41,6 +41,11 @@ static i2c_master_bus_handle_t i2c_bus_handle = NULL;
 static int i2c_sda_pin = I2C_MASTER_SDA_IO;
 static int i2c_scl_pin = I2C_MASTER_SCL_IO;
 
+#define ADS1115_ADDR 0x48
+#define ADS1115_CONV_REG 0x00
+#define ADS1115_CONFIG_REG 0x01
+static uint8_t ads1115_addr = ADS1115_ADDR;
+
 void blink_task(void *arg)
 {
     while (1) {
@@ -174,6 +179,61 @@ void i2c_detect(void)
     uart_write_bytes(UART_NUM, "\r\n> ", 4);
 }
 
+static i2c_master_dev_handle_t ads1115_dev = NULL;
+
+void ads1115_write_config(uint16_t config)
+{
+    if (!ads1115_dev) {
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = ads1115_addr,
+            .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+        };
+        i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &ads1115_dev);
+    }
+    uint8_t data[3] = {ADS1115_CONFIG_REG, config >> 8, config & 0xFF};
+    i2c_master_transmit(ads1115_dev, data, 3, 100);
+}
+
+uint16_t ads1115_read_data(void)
+{
+    if (!ads1115_dev) {
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = ads1115_addr,
+            .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+        };
+        i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &ads1115_dev);
+    }
+    uint8_t reg = ADS1115_CONV_REG;
+    i2c_master_transmit(ads1115_dev, &reg, 1, 100);
+    uint8_t data[2];
+    i2c_master_receive(ads1115_dev, data, 2, 100);
+    return (data[0] << 8) | data[1];
+}
+
+void ads1115_init(void)
+{
+    if (!i2c_initialized) {
+        i2c_init_master(i2c_sda_pin, i2c_scl_pin);
+    }
+    uint16_t config = 0x8483;
+    ads1115_write_config(config);
+}
+
+void ads1115_read_cmd(void)
+{
+    if (!i2c_initialized) {
+        i2c_init_master(i2c_sda_pin, i2c_scl_pin);
+    }
+    uint16_t raw = ads1115_read_data();
+    int16_t value = (int16_t)raw;
+    float voltage = value * 4.096 / 32768.0;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "\r\nADS1115: raw=%d, %.3fV\r\n> ", raw, voltage);
+    uart_write_bytes(UART_NUM, buf, strlen(buf));
+}
+
 void uart_terminal_task(void *arg)
 {
     uint8_t *data = malloc(BUF_SIZE);
@@ -257,6 +317,11 @@ void uart_terminal_task(void *arg)
                             }
                         } else if (strcmp(cmd_buf, "i2c detect") == 0) {
                             i2c_detect();
+                        } else if (strncmp(cmd_buf, "ads1115 init", 11) == 0) {
+                            ads1115_init();
+                            uart_write_bytes(UART_NUM, "\r\nADS1115 initialized\r\n> ", 30);
+                        } else if (strcmp(cmd_buf, "ads1115 read") == 0) {
+                            ads1115_read_cmd();
                         } else if (strcmp(cmd_buf, "clock") == 0) {
                             uint32_t cpu_freq = ets_get_cpu_frequency() * 1000000;
                             uart_write_bytes(UART_NUM, "\r\nSystem Clocks:\r\n", 20);
@@ -278,9 +343,11 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "  i2s tone <freq>- Play tone 100-15000Hz\r\n", 48);
                             uart_write_bytes(UART_NUM, "  i2s start      - Start I2S\r\n", 37);
                             uart_write_bytes(UART_NUM, "  i2s stop       - Stop I2S\r\n", 36);
-                            uart_write_bytes(UART_NUM, "  i2c init <sda> <scl> - Init I2C pins\r\n", 45);
-                            uart_write_bytes(UART_NUM, "  i2c detect     - Scan I2C bus\r\n", 40);
-                            uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
+                             uart_write_bytes(UART_NUM, "  i2c init <sda> <scl> - Init I2C pins\r\n", 45);
+                             uart_write_bytes(UART_NUM, "  i2c detect     - Scan I2C bus\r\n", 40);
+                             uart_write_bytes(UART_NUM, "  ads1115 init    - Init ADS1115\r\n", 42);
+                             uart_write_bytes(UART_NUM, "  ads1115 read    - Read ADS1115\r\n", 40);
+                             uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
                             uart_write_bytes(UART_NUM, "  reset          - Restart ESP32\r\n", 40);
                             uart_write_bytes(UART_NUM, "  help           - Show this help\r\n> ", 39);
                         } else {
