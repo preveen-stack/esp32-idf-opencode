@@ -32,13 +32,14 @@ static uint8_t i2s_bit_width = 16;
 static bool i2s_stereo = true;
 static TaskHandle_t i2s_tone_task = NULL;
 
-#define I2C_MASTER_SCL_IO GPIO_NUM_19
-#define I2C_MASTER_SDA_IO GPIO_NUM_18
-#define I2C_MASTER_SCL_IO GPIO_NUM_19
+#define I2C_MASTER_SDA_IO GPIO_NUM_21
+#define I2C_MASTER_SCL_IO GPIO_NUM_22
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 100000
 static bool i2c_initialized = false;
 static i2c_master_bus_handle_t i2c_bus_handle = NULL;
+static int i2c_sda_pin = I2C_MASTER_SDA_IO;
+static int i2c_scl_pin = I2C_MASTER_SCL_IO;
 
 void blink_task(void *arg)
 {
@@ -122,15 +123,18 @@ void i2s_init_chan(int channel, int sample_rate, int bit_width, bool stereo)
     i2s_initialized = true;
 }
 
-void i2c_init_master(void)
+void i2c_init_master(int sda_pin, int scl_pin)
 {
     if (i2c_initialized) {
-        return;
+        i2c_del_master_bus(i2c_bus_handle);
+        i2c_bus_handle = NULL;
     }
+    i2c_sda_pin = sda_pin;
+    i2c_scl_pin = scl_pin;
     i2c_master_bus_config_t bus_config = {
         .i2c_port = I2C_MASTER_NUM,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_io_num = sda_pin,
+        .scl_io_num = scl_pin,
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .glitch_ignore_cnt = 7,
         .intr_priority = 0,
@@ -146,7 +150,7 @@ void i2c_init_master(void)
 void i2c_detect(void)
 {
     if (!i2c_initialized) {
-        i2c_init_master();
+        i2c_init_master(i2c_sda_pin, i2c_scl_pin);
     }
     uart_write_bytes(UART_NUM, "\r\nI2C Scan:\r\n", 14);
     uart_write_bytes(UART_NUM, "     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n", 56);
@@ -238,6 +242,19 @@ void uart_terminal_task(void *arg)
                         } else if (strcmp(cmd_buf, "i2s stop") == 0) {
                             i2s_running = false;
                             uart_write_bytes(UART_NUM, "\r\nI2S stopped\r\n> ", 21);
+                        } else if (strncmp(cmd_buf, "i2c init ", 9) == 0) {
+                            int sda, scl;
+                            if (sscanf(cmd_buf + 9, "%d %d", &sda, &scl) == 2) {
+                                if (i2c_initialized) {
+                                    i2c_del_master_bus(i2c_bus_handle);
+                                    i2c_bus_handle = NULL;
+                                    i2c_initialized = false;
+                                }
+                                i2c_init_master(sda, scl);
+                                uart_write_bytes(UART_NUM, "\r\nI2C initialized\r\n> ", 26);
+                            } else {
+                                uart_write_bytes(UART_NUM, "\r\nUsage: i2c init <sda> <scl>\r\n> ", 44);
+                            }
                         } else if (strcmp(cmd_buf, "i2c detect") == 0) {
                             i2c_detect();
                         } else if (strcmp(cmd_buf, "clock") == 0) {
@@ -261,6 +278,7 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "  i2s tone <freq>- Play tone 100-15000Hz\r\n", 48);
                             uart_write_bytes(UART_NUM, "  i2s start      - Start I2S\r\n", 37);
                             uart_write_bytes(UART_NUM, "  i2s stop       - Stop I2S\r\n", 36);
+                            uart_write_bytes(UART_NUM, "  i2c init <sda> <scl> - Init I2C pins\r\n", 45);
                             uart_write_bytes(UART_NUM, "  i2c detect     - Scan I2C bus\r\n", 40);
                             uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
                             uart_write_bytes(UART_NUM, "  reset          - Restart ESP32\r\n", 40);
