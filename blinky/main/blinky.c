@@ -46,6 +46,14 @@ static int i2c_scl_pin = I2C_MASTER_SCL_IO;
 #define ADS1115_CONFIG_REG 0x01
 static uint8_t ads1115_addr = ADS1115_ADDR;
 
+#define ADS1115_PGA_6_144V 0x0000
+#define ADS1115_PGA_4_096V 0x0200
+#define ADS1115_PGA_2_048V 0x0400
+#define ADS1115_PGA_1_024V 0x0600
+#define ADS1115_PGA_0_512V 0x0800
+#define ADS1115_PGA_0_256V 0x0A00
+static uint16_t ads1115_pga = ADS1115_PGA_4_096V;
+
 void blink_task(void *arg)
 {
     while (1) {
@@ -234,6 +242,25 @@ void ads1115_read_cmd(void)
     uart_write_bytes(UART_NUM, buf, strlen(buf));
 }
 
+void ads1115_set_pga(uint16_t pga)
+{
+    ads1115_pga = pga;
+    uint16_t config = 0x8403 | pga;
+    ads1115_write_config(config);
+}
+
+void ads1115_read_pga(void)
+{
+    uint8_t reg = ADS1115_CONFIG_REG;
+    i2c_master_transmit(ads1115_dev, &reg, 1, 100);
+    uint8_t data[2];
+    i2c_master_receive(ads1115_dev, data, 2, 100);
+    uint16_t config = (data[0] << 8) | data[1];
+    char buf[64];
+    snprintf(buf, sizeof(buf), "\r\nADS1115 PGA: 0x%04x (current: 0x%04x)\r\n> ", config, ads1115_pga);
+    uart_write_bytes(UART_NUM, buf, strlen(buf));
+}
+
 void uart_terminal_task(void *arg)
 {
     uint8_t *data = malloc(BUF_SIZE);
@@ -322,6 +349,12 @@ void uart_terminal_task(void *arg)
                             uart_write_bytes(UART_NUM, "\r\nADS1115 initialized\r\n> ", 30);
                         } else if (strcmp(cmd_buf, "ads1115 read") == 0) {
                             ads1115_read_cmd();
+                        } else if (strncmp(cmd_buf, "ads1115 setpga ", 15) == 0) {
+                            uint16_t pga = (uint16_t)strtol(cmd_buf + 15, NULL, 16);
+                            ads1115_set_pga(pga);
+                            uart_write_bytes(UART_NUM, "\r\nPGA set\r\n> ", 22);
+                        } else if (strcmp(cmd_buf, "ads1115 getpga") == 0) {
+                            ads1115_read_pga();
                         } else if (strcmp(cmd_buf, "clock") == 0) {
                             uint32_t cpu_freq = ets_get_cpu_frequency() * 1000000;
                             uart_write_bytes(UART_NUM, "\r\nSystem Clocks:\r\n", 20);
@@ -347,6 +380,8 @@ void uart_terminal_task(void *arg)
                              uart_write_bytes(UART_NUM, "  i2c detect     - Scan I2C bus\r\n", 40);
                              uart_write_bytes(UART_NUM, "  ads1115 init    - Init ADS1115\r\n", 42);
                              uart_write_bytes(UART_NUM, "  ads1115 read    - Read ADS1115\r\n", 40);
+                             uart_write_bytes(UART_NUM, "  ads1115 setpga <hex> - Set PGA config\r\n", 45);
+                             uart_write_bytes(UART_NUM, "  ads1115 getpga - Read PGA config\r\n", 42);
                              uart_write_bytes(UART_NUM, "  clock          - Show system clocks\r\n", 42);
                             uart_write_bytes(UART_NUM, "  reset          - Restart ESP32\r\n", 40);
                             uart_write_bytes(UART_NUM, "  help           - Show this help\r\n> ", 39);
